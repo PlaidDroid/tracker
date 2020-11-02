@@ -30,55 +30,28 @@ class OverviewPanel extends JPanel {
 		this.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 		this.setPreferredSize(Main.WINDOW_SIZE);
 
-		// metricPanel
-
-		this.add(filterPanel(), BorderLayout.NORTH);
-		this.add(metricPanel(), BorderLayout.CENTER);
-	}
-
-	private JPanel generateLabelAndProgressBar(String name) {
-		JPanel panel = new JPanel();
-		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
-
-		JLabel label = new JLabel(name);
-
-		JProgressBar prog = new JProgressBar();
-		int progWidth = (int) (Main.WIDTH - (Main.WIDTH * 0.6));
-		int progHeight = 10;
-		Dimension progDimen = new Dimension(progWidth, progHeight);
-		prog.setMaximumSize(progDimen);
-
-		panel.add(label);
-		panel.add(Box.createRigidArea(new Dimension(15, 0)));
-		panel.add(prog);
-
-		return panel;
-	}
-
-	private JPanel metricPanel() throws Exception {
+		/*
+		 * metricPanel
+		 */
 		DBHelper helper = new DBHelper();
 		helper.printAll();
 
-		JPanel panel = new JPanel();
-		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		JPanel metricPanel = new JPanel();
+		metricPanel.setLayout(new BoxLayout(metricPanel, BoxLayout.Y_AXIS));
 
 		final String[] panelLabels = { "Audio", "Visual", "Research", "Work" };
 		for (int i = 0; i < panelLabels.length; i++) {
-			panel.add(generateLabelAndProgressBar(panelLabels[i]));
+			metricPanel.add(generateLabelAndProgressBar(panelLabels[i]));
 		}
 
-		return panel;
-	}
-
-	private JPanel filterPanel() {
 		/*
-		 * TOFIX: 1) Fix yearPicker - it throws an error when changing year; possibly
-		 * because of concurrent action listener triggers
+		 * filterPanel TOFIX: 1) Fix yearPicker - it throws an error when changing year;
+		 * possibly because of concurrent action listener triggers
 		 */
 
 		// main
-		final JPanel mainPanel = new JPanel();
-		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.X_AXIS));
+		final JPanel filterPanel = new JPanel();
+		filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.X_AXIS));
 
 		// section left
 		final JPanel datePanel = new JPanel();
@@ -119,11 +92,31 @@ class OverviewPanel extends JPanel {
 		yearPicker.addActionListener(onYearChange);
 		monthPicker.addActionListener(onMonthChange);
 
-		mainPanel.add(yearPicker);
-		mainPanel.add(monthPicker);
-		mainPanel.add(dayPicker);
+		filterPanel.add(yearPicker);
+		filterPanel.add(monthPicker);
+		filterPanel.add(dayPicker);
 
-		return mainPanel;
+		this.add(filterPanel, BorderLayout.NORTH);
+		this.add(metricPanel, BorderLayout.CENTER);
+	}
+
+	private JPanel generateLabelAndProgressBar(String name) {
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+
+		JLabel label = new JLabel(name);
+
+		JProgressBar prog = new JProgressBar();
+		int progWidth = (int) (Main.WIDTH - (Main.WIDTH * 0.6));
+		int progHeight = 10;
+		Dimension progDimen = new Dimension(progWidth, progHeight);
+		prog.setMaximumSize(progDimen);
+
+		panel.add(label);
+		panel.add(Box.createRigidArea(new Dimension(15, 0)));
+		panel.add(prog);
+
+		return panel;
 	}
 
 	private void setYears(JComboBox<Year> yearPicker) {
