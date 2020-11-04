@@ -1,5 +1,6 @@
 package tracker;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -23,7 +24,7 @@ class DBHelper {
 		}
 	}
 
-	HashMap<String, Integer> getDataFor(LocalDateTime date) {
+	HashMap<String, Integer> getDataFor(LocalDate date) {
 		if (!db.isEmpty()) {
 			if (db.containsKey(date)) {
 				return db.get(date);

@@ -1,14 +1,17 @@
 package tracker;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
 import java.time.format.TextStyle;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
@@ -16,12 +19,14 @@ import java.util.stream.IntStream;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 
 class OverviewPanel extends JPanel {
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	OverviewPanel() throws Exception {
 		// settings
 		this.setFont(Main.FONT);
@@ -30,23 +35,10 @@ class OverviewPanel extends JPanel {
 		this.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 		this.setPreferredSize(Main.WINDOW_SIZE);
 
+		/* filterPanel */
 		/*
-		 * metricPanel
-		 */
-		DBHelper helper = new DBHelper();
-		helper.printAll();
-
-		JPanel metricPanel = new JPanel();
-		metricPanel.setLayout(new BoxLayout(metricPanel, BoxLayout.Y_AXIS));
-
-		final String[] panelLabels = { "Audio", "Visual", "Research", "Work" };
-		for (int i = 0; i < panelLabels.length; i++) {
-			metricPanel.add(generateLabelAndProgressBar(panelLabels[i]));
-		}
-
-		/*
-		 * filterPanel TOFIX: 1) Fix yearPicker - it throws an error when changing year;
-		 * possibly because of concurrent action listener triggers
+		 * TODO: 1) Fix yearPicker - it throws an error when changing year; possibly
+		 * because of concurrent action listener triggers
 		 */
 
 		// main
@@ -55,46 +47,74 @@ class OverviewPanel extends JPanel {
 
 		// section left
 		final JPanel datePanel = new JPanel();
+		datePanel.setLayout(new BoxLayout(datePanel, BoxLayout.X_AXIS));
 
 		final LocalDateTime currentDateTime = LocalDateTime.now();
 		final int currentMonth = currentDateTime.getMonthValue();
 		final int currentYear = currentDateTime.getYear();
 		// years
 		final JComboBox<Year> yearPicker = new JComboBox<Year>();
-		setYears(yearPicker);
-		yearPicker.setEnabled(false);
+		yearPicker.setModel(new DefaultComboBoxModel(setYears()));
+		yearPicker.setSelectedIndex(yearPicker.getModel().getSize() - 1);
 
 		// months
-		final JComboBox<String> monthPicker = new JComboBox<String>();
-		setMonths(monthPicker, true);
+		final JComboBox<Month> monthPicker = new JComboBox<Month>();
+		monthPicker.setModel(new DefaultComboBoxModel(setMonths(true)));
+		monthPicker.setSelectedIndex(monthPicker.getModel().getSize() - 1);
 
 		// day
 		final JComboBox<Integer> dayPicker = new JComboBox<Integer>();
-		setDays(dayPicker, getMonth(monthPicker.getSelectedIndex()), Year.now().isLeap(), true);
+		dayPicker.setModel(new DefaultComboBoxModel(
+				setDays(Month.of(currentMonth), ((Year) yearPicker.getSelectedItem()).isLeap(), true)));
+		dayPicker.setSelectedIndex(dayPicker.getModel().getSize() - 1);
 
 		// action listeners
-		ActionListener onYearChange = e -> {
-			if (((Year) yearPicker.getSelectedItem()).getValue() == currentYear) {
-				setMonths(monthPicker, true);
-			} else {
-				setMonths(monthPicker, false);
-			}
-		};
-		ActionListener onMonthChange = e -> {
-			if ((monthPicker.getSelectedIndex() == currentMonth - 1)
-					&& ((Year) yearPicker.getSelectedItem()).getValue() == currentYear) {
-				setDays(dayPicker, getMonth(monthPicker.getSelectedIndex()), Year.now().isLeap(), true);
-			} else {
-				setDays(dayPicker, getMonth(monthPicker.getSelectedIndex()), Year.now().isLeap(), false);
-			}
-		};
+		yearPicker.addItemListener(e -> {
+			monthPicker.setModel(new DefaultComboBoxModel(setMonths(((Year) e.getItem()).getValue() == currentYear)));
+		});
 
-		yearPicker.addActionListener(onYearChange);
-		monthPicker.addActionListener(onMonthChange);
+		monthPicker.addItemListener(e -> {
+			Boolean b = (((Year) yearPicker.getSelectedItem()).getValue() == currentYear)
+					&& (((Month) e.getItem()).getValue() == currentMonth);
+			dayPicker.setModel(new DefaultComboBoxModel(
+					setDays((Month) e.getItem(), ((Year) yearPicker.getSelectedItem()).isLeap(), b)));
 
-		filterPanel.add(yearPicker);
-		filterPanel.add(monthPicker);
-		filterPanel.add(dayPicker);
+		});
+
+		datePanel.add(yearPicker);
+		datePanel.add(monthPicker);
+		datePanel.add(dayPicker);
+
+		filterPanel.add(datePanel);
+
+		/* metricPanel */
+		/*
+		 * TODO: Add listener so that the UI is updated to show right info
+		 */
+
+		DBHelper helper = new DBHelper();
+		helper.printAll();
+
+		LocalDate date = getDate(datePanel);
+		HashMap<String, Integer> data = helper.getDataFor(date);
+
+		JPanel metricPanel = new JPanel();
+		metricPanel.setLayout(new BoxLayout(metricPanel, BoxLayout.Y_AXIS));
+
+		final String[] panelLabels = { "Audio", "Visual", "Research", "Work" };
+		for (int i = 0; i < panelLabels.length; i++) {
+			JPanel panel = generateLabelAndProgressBar(panelLabels[i]);
+			metricPanel.add(panel);
+		}
+		for (Component panel : metricPanel.getComponents()) {
+			JLabel lab = (JLabel) ((JPanel) panel).getComponent(0);
+			JProgressBar bar = (JProgressBar) ((JPanel) panel).getComponent(2);
+			if (data != null) {
+				bar.setValue(data.get(lab.getText()));
+			} else {
+				bar.setValue(0);
+			}
+		}
 
 		this.add(filterPanel, BorderLayout.NORTH);
 		this.add(metricPanel, BorderLayout.CENTER);
@@ -119,64 +139,51 @@ class OverviewPanel extends JPanel {
 		return panel;
 	}
 
-	private void setYears(JComboBox<Year> yearPicker) {
+	private Year[] setYears() {
 		final int currentYear = Year.now().getValue();
 		final int yearStart = 2000;
 		final int yearEnd = currentYear;
-		IntStream.rangeClosed(yearStart, yearEnd).forEach(i -> yearPicker.addItem(Year.of(i)));
-		yearPicker.setSelectedItem(Year.of(currentYear));
-
+		Year[] years = new Year[yearEnd - yearStart + 1];
+		IntStream.rangeClosed(yearStart, yearEnd).forEach(i -> years[i - yearStart] = Year.of(i));
+		return years;
 	}
 
-	private void setMonths(JComboBox<String> monthPicker, Boolean isTillCurrentMonth) {
-		int currentMonth = LocalDateTime.now().getMonth().getValue();
+	private Month[] setMonths(Boolean isTillCurrentMonth) {
+		int currentMonth = LocalDate.now().getMonth().getValue();
 		if (isTillCurrentMonth) {
-			if (monthPicker.getItemCount() > 0) {
-				monthPicker.removeAllItems();
-			}
-			for (Month month : getMonths()) {
-				if (month.getValue() == currentMonth + 1) {
+			Month[] months = new Month[currentMonth];
+			for (int i = 0; i < months.length; i++) {
+				if (i == currentMonth) {
 					break;
 				}
-				monthPicker.addItem(month.getDisplayName(TextStyle.FULL, Locale.ENGLISH));
+				months[i] = Month.values()[i];
 			}
-			monthPicker.setSelectedIndex(currentMonth - 1);
-		} else {
-			if (monthPicker.getItemCount() > 0) {
-				monthPicker.removeAllItems();
-			}
-			for (Month month : getMonths()) {
-				monthPicker.addItem(month.getDisplayName(TextStyle.FULL, Locale.ENGLISH));
-			}
-			monthPicker.setSelectedIndex(0);
+			return months;
 		}
+		return Month.values();
 	}
 
-	private void setDays(JComboBox<Integer> dayPicker, Month month, Boolean isLeapYear, Boolean isTillCurrentDay) {
+	private Integer[] setDays(Month month, Boolean isLeapYear, Boolean isTillCurrentDay) {
 		int currentDay = LocalDateTime.now().getDayOfMonth();
 		int noOfDays = month.length(isLeapYear);
-		if (dayPicker.getItemCount() > 0) {
-			dayPicker.removeAllItems();
-		}
 		if (isTillCurrentDay) {
-			IntStream.rangeClosed(1, noOfDays).forEach(i -> {
-				if (i <= currentDay) {
-					dayPicker.addItem(i);
-				}
-			});
-			dayPicker.setSelectedItem(currentDay);
-		} else {
-			IntStream.rangeClosed(1, noOfDays).forEach(i -> dayPicker.addItem(i));
-			dayPicker.setSelectedItem(0);
+			return Arrays.stream(IntStream.rangeClosed(1, currentDay).toArray()).boxed().toArray(Integer[]::new);
 		}
-	}
-
-	private Month[] getMonths() {
-		return Month.values();
+		return Arrays.stream(IntStream.rangeClosed(1, noOfDays).toArray()).boxed().toArray(Integer[]::new);
 	}
 
 	private Month getMonth(int index) {
 		return Month.values()[index];
 	}
 
+	@SuppressWarnings("unchecked")
+	private LocalDate getDate(JPanel datePanel) {
+		JComboBox<Year> yearPicker = (JComboBox<Year>) datePanel.getComponents()[0];
+		JComboBox<String> monthPicker = (JComboBox<String>) datePanel.getComponents()[1];
+		JComboBox<Integer> datePicker = (JComboBox<Integer>) datePanel.getComponents()[2];
+		int year = ((Year) yearPicker.getSelectedItem()).getValue();
+		int month = monthPicker.getSelectedIndex() + 1;
+		int day = ((Integer) datePicker.getSelectedItem()).intValue();
+		return LocalDate.of(year, month, day);
+	}
 }

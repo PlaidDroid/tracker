@@ -4,11 +4,12 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Scanner;
 
-class DB extends HashMap<LocalDateTime, HashMap<String, Integer>> {
+class DB extends HashMap<LocalDate, HashMap<String, Integer>> {
 
 	// path to the database file
 	private static final Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), ".trackerDB");
@@ -62,7 +63,7 @@ class DB extends HashMap<LocalDateTime, HashMap<String, Integer>> {
 					}
 				}
 				// put everything in the DB
-				this.put(time, category);
+				this.put(time.toLocalDate(), category);
 			}
 		}
 	}
